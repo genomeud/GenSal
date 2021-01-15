@@ -6,15 +6,15 @@ suppressPackageStartupMessages({
 
 option_list = list(
   make_option(c("-V", "--vcffile"), type="character",
-  default="/projects/populus/ep/share/marroni/Gensal/salmo_trutta_id1492/stacks/populations.snps.cov5.info50.no_low_cov.vcf",help="stacks vcf file [default= %default]", metavar="character"), 
+  default="salmo_trutta_id1492/stacks/populations.snps.cov5.info50.no_low_cov.vcf",help="stacks vcf file [default= %default]", metavar="character"), 
   make_option(c("-P", "--popfile"), type="character",
-  default="/projects/populus/ep/share/marroni/Gensal/salmo_trutta_id1492/salmo_trutta_id1492_population_assignment.5groups.txt",help="Population file path [default= %default]", metavar="character"), 
+  default="salmo_trutta_id1492/salmo_trutta_id1492_population_assignment.5groups.txt",help="Population file path [default= %default]", metavar="character"), 
   make_option(c("-G", "--gdsfile"), type="character",
-  default="/projects/populus/ep/share/marroni/Gensal/salmo_trutta_id1492/SNPRelate/salmo_trutta_id1492.cov5.info50.gds",help="SNPRelate gds file [default= %default]", metavar="character"), 
+  default="salmo_trutta_id1492/SNPRelate/salmo_trutta_id1492.cov5.info50.gds",help="SNPRelate gds file [default= %default]", metavar="character"), 
   make_option(c("-B", "--between"), type="character",
-  default="/projects/populus/ep/share/marroni/Gensal/salmo_trutta_id1492/SNPRelate/IBD_between.pdf",help="Between population IBD graph file [default= %default]", metavar="character"), 
+  default="salmo_trutta_id1492/SNPRelate/IBD_between.pdf",help="Between population IBD graph file [default= %default]", metavar="character"), 
   make_option(c("-W", "--within"), type="character",
-  default="/projects/populus/ep/share/marroni/Gensal/salmo_trutta_id1492/SNPRelate/IBD_within.pdf",help="Within population IBD graph file [default= %default]", metavar="character"), 
+  default="salmo_trutta_id1492/SNPRelate/IBD_within.pdf",help="Within population IBD graph file [default= %default]", metavar="character"), 
   make_option(c("-M", "--maf"), type="numeric",
   default=0.05,help="Minimum MAF to include a SNP in analysis [default= %default]", metavar="character"), 
   make_option(c("-S", "--missingness"), type="numeric",
@@ -22,7 +22,7 @@ option_list = list(
   make_option(c("-L", "--LD"), type="numeric",
   default=0.2,help="Threshold for LD pruning [default= %default]", metavar="character"), 
   make_option(c("-I", "--ibdmatfile"), type="character",
-  default="/projects/populus/ep/share/marroni/Gensal/salmo_trutta_id1492/SNPRelate/salmo_trutta_id1492.cov5.info50.ibd", help="IBD matrix output file [default= %default]", metavar="character"),
+  default="salmo_trutta_id1492/SNPRelate/salmo_trutta_id1492.cov5.info50.ibd", help="IBD matrix output file [default= %default]", metavar="character"),
   make_option(c("--step"), action="store",dest="to_do",default=NULL, type='character', help="Step of the pipeline (pca_analysis,ibd_analysis) [%default]")
 )
 
