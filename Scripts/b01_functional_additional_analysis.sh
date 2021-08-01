@@ -12,7 +12,7 @@ GODIR=/folder/in/which/GO/gaf/file/will/be/downloaded
 
 
 ##############################################################
-#You will need to download Table_S1.xlsx of our papeer to perform this analysis
+#You will need to download Table_S1.xlsx of our paper to perform this analysis
 #As performed for Edo, we measure "introgression" in the samples and add this information to Table_S1
 #I did a ugly thing, I overwrote the file! Maybe you want to be cleaner than me!
 Rscript $FUNC_DIR/Gensal/b01_extract_structure_4_edo.r \
@@ -21,26 +21,45 @@ Rscript $FUNC_DIR/Gensal/b01_extract_structure_4_edo.r \
 -O $INPUT_DIR/salmo_trutta_id1492/tables/Table_S1.xlsx
 #################################################################
 
+
+##############################################################
+#You will need to download Table_S1.xlsx of our paper to perform this analysis
+#Plot the map of Italy (plus Corsica and Austria) and puts the sampling points on it.
+Rscript $FUNC_DIR/Gensal/b13_plot_map.r \
+-I $INPUT_DIR/salmo_trutta_id1492/tables/Table_S1.xlsx \
+-O $INPUT_DIR/salmo_trutta_id1492/tables/Fig_S1_Sampling.png
+#################################################################
+
+
+
+
 #Compute some basic statistics on SNP number and density
 VCF=$INPUT_DIR/salmo_trutta_id1492/stacks/populations.snps.cov5.info50.no_low_cov.reheader.vcf
 cut -f1 $VCF | sort | uniq -c > $INPUT_DIR/salmo_trutta_id1492/tables/SNP_stats.txt
 
 
-
+###########################
+#Main ZHp analysis
+###########################
 #Read Zhp output and isolate results above threshold (Default threshold is 2.81 i.e. 0.0025 per tail, i.e. 0.005 in total, quite conservative, but not too much)
-Rscript $FUNCDIR/Gensal/b02_top_ZHp.r \
+Rscript $FUNC_DIR/Gensal/b02_top_ZHp.r \
 -Z $INPUT_DIR/salmo_trutta_id1492/selective_sweep/output/windows.1000000.sliding.200000.all_populations.merged.reads.count.cov5.info50.no_low_cov.ZHp.txt \
 -O $INPUT_DIR/salmo_trutta_id1492/selective_sweep/output/genes_windows.1000000.sliding.200000.all_populations.merged.reads.count.cov5.info50.no_low_cov.ZHp.txt \
 -C $INPUT_DIR/genome/GCA_GCF_conversion.txt \
 -G $INPUT_DIR/genome/GCF_901001165.1_fSalTru1.1_genomic.gff
+#Compute significance of clustering of ZHp windows
+Rscript $FUNC_DIR/Gensal/b15_sim_dist_ZHp.r \
+-Z $INPUT_DIR/salmo_trutta_id1492/selective_sweep/output/windows.1000000.sliding.200000.all_populations.merged.reads.count.cov5.info50.no_low_cov.ZHp.txt \
+-T 2.81 \
+-S 1000 \
+-L 27 \
+-O $INPUT_DIR/salmo_trutta_id1492/tables/sim.ZHp.txt
 
 
 #Download and gunzip the Uniprot GO:
 cd ${GODIR}
 wget -c ftp://ftp.ebi.ac.uk/pub/databases/GO/goa/UNIPROT/goa_uniprot_all.gaf.gz
 gunzip goa_uniprot_all.gaf.gz
-
-
 
 
 #Run blast on swissprot
@@ -77,37 +96,71 @@ awk 'FNR==NR{k[$1]=1;next;} k[$2]' $BSWISS $MYGO > $MYMAPPING
 #Reformat GO file, so that each gene has only one row and all GO terms are separated by ";"
 #We recycle a function written for the work on limodorum
 FORMGO=$INPUT_DIR/GO/formatted_transcripts_GO.txt
-Rscript $FUNCDIR/Gensal/b03_reformat_GO.r \
+Rscript $FUNC_DIR/Gensal/b03_reformat_GO.r \
 -I $MYMAPPING \
 -O $FORMGO
 
 #Reformat GO file, so that each gene has only one row and all GO terms are separated by ";"
 #We recycle a function written for the work on limodorum
 KEGGO=$INPUT_DIR/GO/formatted_transcripts_GO_KEGG.txt
-Rscript $FUNCDIR/Gensal/b04_assign_kegg.r \
+Rscript $FUNC_DIR/Gensal/b04_assign_kegg.r \
 -I $FORMGO \
 -O $KEGGO
 
 #Reformat KEGG file, so that each gene has only one row and all GO terms are separated by ";"
 #We recycle a function written for the work on limodorum
 PKEGG=$INPUT_DIR/GO/formatted_transcripts_GO_KEGG_path.txt
-Rscript $FUNCDIR/Gensal/b05_assign_kegg_pathway.r \
+Rscript $FUNC_DIR/Gensal/b05_assign_kegg_pathway.r \
 -I $KEGGO \
 -O $PKEGG
 
 #Add original transcript name (useful to associate my genes to KEGG and GO!!!)
 WITHT=$INPUT_DIR/GO/named_transcripts_GO_KEGG_path.txt
-Rscript $FUNCDIR/Gensal/b06_assign_transcript_name.r \
+Rscript $FUNC_DIR/Gensal/b06_assign_transcript_name.r \
 -I $PKEGG \
 -B $MYB \
 -O $WITHT
 
 #Perform KEGG enrichment on ZHp results
 ENRICH=$INPUT_DIR/GO/ZHp_KEGG_Enrich.txt
-Rscript $FUNCDIR/Gensal/b07_KEGG_enrichment.r \
+Rscript $FUNC_DIR/Gensal/b07_KEGG_enrichment.r \
 -I $INPUT_DIR/salmo_trutta_id1492/selective_sweep/output/genes_windows.1000000.sliding.200000.all_populations.no_low_cov.merged.reads.count.ZHp.txt \
 -K $WITHT \
 -O $ENRICH
+
+
+
+
+###########################
+#ZHp analysis on subgroups
+###########################
+#Read Zhp output and isolate results above threshold (Default threshold is 2.81 i.e. 0.0025 per tail, i.e. 0.005 in total, quite conservative, but not too much)
+for GROUP in Q95 Farm River carpione fario_atlantica fario_med_island fario_med_peninsula marmorata
+do
+Rscript $FUNC_DIR/Gensal/b02_top_ZHp.r \
+-Z $INPUT_DIR/salmo_trutta_id1492/selective_sweep/output/windows.1000000.sliding.200000.${GROUP}.merged.reads.count.cov5.info50.no_low_cov.ZHp.txt \
+-O $INPUT_DIR/salmo_trutta_id1492/selective_sweep/output/genes_windows.1000000.sliding.200000.${GROUP}.merged.reads.count.cov5.info50.no_low_cov.ZHp.txt \
+-C $INPUT_DIR/genome/GCA_GCF_conversion.txt \
+-G $INPUT_DIR/genome/GCF_901001165.1_fSalTru1.1_genomic.gff
+#Compute significance of clustering of ZHp windows
+Rscript $FUNC_DIR/Gensal/b15_sim_dist_ZHp.r \
+-Z $INPUT_DIR/salmo_trutta_id1492/selective_sweep/output/windows.1000000.sliding.200000.${GROUP}.merged.reads.count.cov5.info50.no_low_cov.ZHp.txt \
+-T 2.81 \
+-S 1000 \
+-L 27 \
+-O $INPUT_DIR/salmo_trutta_id1492/tables/sim.${GROUP}.ZHp.txt
+done
+
+for GROUP in Q95 Farm River carpione fario_atlantica fario_med_island fario_med_peninsula marmorata
+do
+#Perform KEGG enrichment on ZHp results
+ENRICH=$INPUT_DIR/GO/ZHp_KEGG_Enrich_${GROUP}.txt
+Rscript $FUNC_DIR/Gensal/b07_KEGG_enrichment.r \
+-I $INPUT_DIR/salmo_trutta_id1492/selective_sweep/output/genes_windows.1000000.sliding.200000.${GROUP}.merged.reads.count.cov5.info50.no_low_cov.ZHp.txt \
+-K $WITHT \
+-O $ENRICH
+done
+
 
 
 
@@ -151,6 +204,61 @@ Rscript $FUNC_DIR/Gensal/b07_KEGG_enrichment.r \
 -K $WITHT \
 -O $ENRICH
 
+#Check my distribution of clusters VS random distribution. First line is real data, all the other are random
+#Done for hapFLK, need to do for ZHp. Also need to summarize the results
+Rscript $FUNC_DIR/Gensal/b14_sim_dist_hapFLK.r \
+-I $INPUT_DIR/salmo_trutta_id1492/hapflk/output/populations.snps.cov5.info50.sorted.no_low_cov.K20.nfit20.hapflk_sc \
+-D 1000000 \
+-P 0.01 \
+-S 2 \
+-L 50 \
+-N 250 \
+-O $INPUT_DIR/salmo_trutta_id1492/tables/sim.hapflk.txt
+
+#####################################
+#
+#HapFLK on subgroups
+#Farm vs river and Q95
+#
+#####################################
+
+
+#Extract significant results of HapFLK. We consider as signficant only windows consisting of at least 2 consecutive SNPs with pvalue lower than a threshold (0.01 by default).
+#Windows are interrupted when a non-signficant SNP is met or when 2 consecutive significant SNPs are more than 1Mb apart.  
+for MYSET in farm_vs_river Q95
+do
+Rscript $FUNC_DIR/Gensal/b08_top_hapFLK.r \
+-I $INPUT_DIR/salmo_trutta_id1492/hapflk/output/populations.snps.cov5.info50.sorted.no_low_cov.${MYSET}.subset.K20.nfit20.hapflk_sc \
+-D 1000000 \
+-P 0.01 \
+-S 2 \
+-C $INPUT_DIR/genome/GCA_GCF_conversion.txt \
+-G $INPUT_DIR/genome/GCF_901001165.1_fSalTru1.1_genomic.gff \
+-O $INPUT_DIR/salmo_trutta_id1492/tables/top_populations.snps.cov5.info50.sorted.no_low_cov.${MYSET}.subset.K20.nfit20.hapflk_sc
+#Perform KEGG enrichment on HapFLK results
+WITHT=$INPUT_DIR/GO/named_transcripts_GO_KEGG_path.txt
+ENRICH=$INPUT_DIR/GO/HapFLK_${MYSET}_KEGG_Enrich.txt
+Rscript $FUNC_DIR/Gensal/b07_KEGG_enrichment.r \
+-I $INPUT_DIR/salmo_trutta_id1492/tables/top_populations.snps.cov5.info50.sorted.no_low_cov.${MYSET}.subset.K20.nfit20.hapflk_sc \
+-K $WITHT \
+-O $ENRICH
+#Check my distribution of clusters VS random distribution. First line is real data, all the other are random
+#Done for hapFLK, need to do for ZHp. Also need to summarize the results
+Rscript $FUNC_DIR/Gensal/b14_sim_dist_hapFLK.r \
+-I $INPUT_DIR/salmo_trutta_id1492/hapflk/output/populations.snps.cov5.info50.sorted.no_low_cov.${MYSET}.subset.K20.nfit20.hapflk_sc \
+-D 1000000 \
+-P 0.01 \
+-S 2 \
+-L 50 \
+-N 250 \
+-O $INPUT_DIR/salmo_trutta_id1492/tables/sim.${MYSET}.hapflk.txt
+done
+
+
+
+
+
+
 
 ##############################
 #
@@ -168,6 +276,14 @@ Rscript $FUNC_DIR/Gensal/b09_top_win_ibd.r \
 -G $GFF \
 -O $IBDGENES
 
+#Use resampling to assess significance of the windows.
+Rscript $FUNC_DIR/Gensal/b16_sim_dist_ibd.r \
+-I $INPUT_DIR/salmo_trutta_id1492/SNPRelate/windows_ibd/kinship_median/all_chr_kinship_median.coord.txt \
+-K 0.05 \
+-L 27 \
+-S 1000 \
+-O $INPUT_DIR/salmo_trutta_id1492/tables/sim.ibd.txt
+
 #Perform KEGG enrichment
 WITHT=$INPUT_DIR/GO/named_transcripts_GO_KEGG_path.txt
 ENRICH=$INPUT_DIR/GO/win_ibd_KEGG_Enrich.txt
@@ -175,6 +291,60 @@ Rscript $FUNC_DIR/Gensal/b07_KEGG_enrichment.r \
 -I $IBDGENES \
 -K $WITHT \
 -O $ENRICH
+
+
+#Compare farm vs river
+
+#Select the most interesting windows, i.e. those where IBD sharing between populations is greater
+GFF=$INPUT_DIR/genome/GCF_901001165.1_fSalTru1.1_genomic.gff
+IBDGENES=$INPUT_DIR/salmo_trutta_id1492/tables/genes_top_all_chr_kinship_median.farm_vs_river.coord.txt 
+Rscript $FUNC_DIR/Gensal/b09_top_win_ibd.r \
+-I $INPUT_DIR/salmo_trutta_id1492/SNPRelate/windows_ibd/kinship_median/all_chr_kinship_median.farm_vs_river.coord.txt \
+-K 0.05 \
+-C $INPUT_DIR/genome/GCA_GCF_conversion.txt \
+-G $GFF \
+-O $IBDGENES
+#Use resampling to assess significance of the windows.
+Rscript $FUNC_DIR/Gensal/b16_sim_dist_ibd.r \
+-I $INPUT_DIR/salmo_trutta_id1492/SNPRelate/windows_ibd/kinship_median/all_chr_kinship_median.farm_vs_river.coord.txt \
+-K 0.05 \
+-L 27 \
+-S 1000 \
+-O $INPUT_DIR/salmo_trutta_id1492/tables/sim.ibd.farm_vs_river.txt
+#Perform KEGG enrichment
+WITHT=$INPUT_DIR/GO/named_transcripts_GO_KEGG_path.txt
+ENRICH=$INPUT_DIR/GO/win_ibd_farm_vs_river_KEGG_Enrich.txt
+Rscript $FUNC_DIR/Gensal/b07_KEGG_enrichment.r \
+-I $IBDGENES \
+-K $WITHT \
+-O $ENRICH
+
+#Excluding admixed individuals
+
+#Select the most interesting windows, i.e. those where IBD sharing between populations is greater
+GFF=$INPUT_DIR/genome/GCF_901001165.1_fSalTru1.1_genomic.gff
+IBDGENES=$INPUT_DIR/salmo_trutta_id1492/tables/genes_top_all_chr_kinship_median.Q95.coord.txt 
+Rscript $FUNC_DIR/Gensal/b09_top_win_ibd.r \
+-I $INPUT_DIR/salmo_trutta_id1492/SNPRelate/windows_ibd/kinship_median/all_chr_kinship_median.Q95.coord.txt \
+-K 0.05 \
+-C $INPUT_DIR/genome/GCA_GCF_conversion.txt \
+-G $GFF \
+-O $IBDGENES
+#Use resampling to assess significance of the windows.
+Rscript $FUNC_DIR/Gensal/b16_sim_dist_ibd.r \
+-I $INPUT_DIR/salmo_trutta_id1492/SNPRelate/windows_ibd/kinship_median/all_chr_kinship_median.Q95.coord.txt \
+-K 0.05 \
+-L 27 \
+-S 1000 \
+-O $INPUT_DIR/salmo_trutta_id1492/tables/sim.ibd.Q95.txt
+#Perform KEGG enrichment
+WITHT=$INPUT_DIR/GO/named_transcripts_GO_KEGG_path.txt
+ENRICH=$INPUT_DIR/GO/win_ibd_Q95_KEGG_Enrich.txt
+Rscript $FUNC_DIR/Gensal/b07_KEGG_enrichment.r \
+-I $IBDGENES \
+-K $WITHT \
+-O $ENRICH
+
 
 
 #############################################
