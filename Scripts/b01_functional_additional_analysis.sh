@@ -347,6 +347,48 @@ Rscript $FUNC_DIR/Gensal/b07_KEGG_enrichment.r \
 
 
 
+##################################################
+#
+# Add recombination frequency info
+#
+##################################################
+
+#Download the supplementary Table S1 by Leitwein et al. (https://academic.oup.com/g3journal/article/7/4/1365/6031796)
+#Save it as RECOMBFILE
+RECOMBFILE=${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/038497_tables1.xlsx
+
+
+#Extract tag sequences as fasta sequences
+Rscript $FUNC_DIR/Gensal/b17_tags_to_fasta.r \
+--infile $RECOMBFILE \
+--fasta ${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/038497_tables1.fa \
+--outfile ${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/recomb_table.csv
+
+#Prepare a blast db with Salmo trutta genome (I use the GCA file, we could also use th GCF)
+module load aligners/blast/latest
+
+makeblastdb -in ${INPUT_DIR}/genome/GCA_radseq_ref/GCA_901001165.1_fSalTru1.1_genomic.fna \
+    -dbtype nucl \
+    -out ${INPUT_DIR}/genome/GCA_radseq_ref/GCA_901001165.1_fSalTru1.1_genomic
+
+#Blast the tags against the trout genome
+blastn -query ${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/038497_tables1.fa \
+-db ${INPUT_DIR}/genome/GCA_radseq_ref/GCA_901001165.1_fSalTru1.1_genomic \
+-outfmt '6 qseqid sseqid pident length mismatch qstart qend sstart send evalue bitscore stitle' \
+-evalue 1e-30 -perc_identity 95 -max_target_seqs 2 -num_threads 8 -out ${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/tag_mapped.out
+
+#Assign the position of the best hit to each tag
+#Thus, we will have the genetic distance on the Salmo trutta genome
+#We do not filter (we were already strict with the blast, and we simply select the best hit)
+Rscript $FUNC_DIR/Gensal/b18_tags_to_trutta.r \
+--infile ${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/recomb_table.csv \
+--blastfile ${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/tag_mapped.out \
+--graphfile ${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/recomb_trutta.pdf \
+--outfile ${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/recomb_trutta.tsv
+
+
+
+
 #############################################
 #
 # Add chromosome numbers (I did it manually, but after having to redo that several times I finally decided to write a function)
@@ -371,3 +413,47 @@ Rscript $FUNC_DIR/Gensal/b12_ABBA_jack.r \
 -E $EST \
 -O $INPUT_DIR/salmo_trutta_id1492/tables/ABBA_boot_${EST}.txt
 done
+
+
+#Compute nucleotide diversity
+for POP in carpione fario_atlantica fario_med_island fario_med_peninsula marmorata Farm River
+do
+Rscript $FUNC_DIR/Gensal/b19_compute_nd.r \
+-F ${INPUT_DIR}/salmo_trutta_id1492/heterozygosity/populations.snps.cov5.info50.no_low_cov.${POP}.frq \
+-O ${INPUT_DIR}/salmo_trutta_id1492/tables/nd.cov5.info50.no_low_cov.${POP}.txt
+done
+
+Rscript $FUNC_DIR/Gensal/b19_compute_nd.r \
+-F ${INPUT_DIR}/salmo_trutta_id1492/heterozygosity/populations.snps.cov5.info50.no_low_cov.frq \
+-O ${INPUT_DIR}/salmo_trutta_id1492/tables/nd.cov5.info50.no_low_cov.txt
+
+#Compute per site nd
+#We keep s usable loci all the sequenced bases
+NBASES=$(grep -v "#" ${INPUT_DIR}/salmo_trutta_id1492/stacks/populations.loci.fa | grep -v ">" | sed 's/N//g' | wc | sed 's/ /;/g' | cut -d";" -f7)
+
+for aaa in ${INPUT_DIR}/salmo_trutta_id1492/tables/nd.cov5.*
+do
+pi=$(awk -v BASES=${NBASES} '{sum+=$6} END { print sum / BASES }' $aaa)
+echo $(basename $aaa) $pi >> ${INPUT_DIR}/salmo_trutta_id1492/tables/nd.all.txt
+done
+
+#Plot ND as a function of recombination rate and save nd nearby (default=1Mb) recombination rate 
+Rscript $FUNC_DIR/Gensal/b20_nd_recomb.r \
+-T ${INPUT_DIR}/salmo_trutta_id1492/tables/nd.cov5.info50.no_low_cov.txt \
+-A ${INPUT_DIR}/salmo_trutta_id1492/tables/nd.cov5.info50.no_low_cov.fario_atlantica.txt \
+-C ${INPUT_DIR}/salmo_trutta_id1492/tables/nd.cov5.info50.no_low_cov.carpione.txt \
+-M ${INPUT_DIR}/salmo_trutta_id1492/tables/nd.cov5.info50.no_low_cov.marmorata.txt \
+-m ${INPUT_DIR}/salmo_trutta_id1492/tables/nd.cov5.info50.no_low_cov.fario_med_peninsula.txt \
+-I ${INPUT_DIR}/salmo_trutta_id1492/tables/nd.cov5.info50.no_low_cov.fario_med_island.txt \
+-c ${NAMETONUMBERS} \
+-t 1000000 \
+-r ${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/recomb_trutta.tsv \
+-O ${INPUT_DIR}/salmo_trutta_id1492/recomb_rate/recomb_trutta_nd.tsv
+
+
+#Not really needed
+#Distribution of quality scores
+#module load sw/bio/samtools/0.1.19
+#samtools view 10-10I-B02.bam | awk '{if($5 <20) {count++}} END {print count}'
+
+
